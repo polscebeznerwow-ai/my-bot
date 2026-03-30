@@ -13,10 +13,10 @@ BOT_TOKEN = "8525815500:AAEbK5vc2H22YHnWAf0kvZ7g4PLNmlHcwQg"
 ADMIN_ID   = 980725289
 
 USERS = {
-    "pass_anna":   "Анна",
-    "pass_ivan":   "Іван",
-    "pass_olga":   "Ольга",
-    "pass_mykola": "Микола",
+    "bigred_V1":   "Звіт про виконання робіт:",
+    "bigred_G2":   "Звіт: Обсяг робіт/годин",
+    "bigred_L3":   "Табель: Людино-години",
+    "bigred_Z4": "Інше",
 }
 
 MONTHS_UA = {
