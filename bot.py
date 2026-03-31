@@ -26,7 +26,7 @@ MONTHS_UA = {
     "10": "Жовтень", "11": "Листопад", "12": "Грудень",
 }
 
-DB_FILE = "documents.json"
+DB_FILE = "/data/documents.json"
 USER_KEYS = {pw: name for pw, name in USERS.items()}
 
 WAIT_PASSWORD = 0
