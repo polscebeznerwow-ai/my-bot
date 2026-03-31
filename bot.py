@@ -244,7 +244,7 @@ def main():
     user_conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={WAIT_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, check_password)]},
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("upload", admin_upload)],
     )
     admin_conv = ConversationHandler(
         entry_points=[CommandHandler("upload", admin_upload)],
@@ -255,7 +255,7 @@ def main():
             WAIT_DOC_TYPE:  [CallbackQueryHandler(admin_select_type,  pattern="^atype_")],
             WAIT_DOC_FILE:  [MessageHandler(filters.Document.ALL, admin_receive_file)],
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("upload", admin_upload)],
     )
     app.add_handler(user_conv)
     app.add_handler(admin_conv)
