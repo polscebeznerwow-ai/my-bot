@@ -238,23 +238,7 @@ async def admin_receive_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Скасовано.")
     return ConversationHandler.END
-    delete_conv = ConversationHandler(
-    entry_points=[CommandHandler("delete", admin_delete)],
-    states={
-        WAIT_DELETE_USER: [CallbackQueryHandler(admin_delete_select_user, pattern="^duser_")],
-        WAIT_DELETE_KEY:  [CallbackQueryHandler(admin_delete_select_key, pattern="^dkey_")],
-        WAIT_DELETE_FILE: [CallbackQueryHandler(admin_delete_file, pattern="^dfile_")],
-    },
-    fallbacks=[CommandHandler("cancel", cancel)],
-)
-```
-
----
-
-**Крок 4.** Знайди рядок:
-```
-app.add_handler(admin_conv)
-    app.add_handler(delete_conv)
+   
 async def admin_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("Тільки для адміністратора.")
@@ -305,13 +289,6 @@ async def admin_delete_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_db(db)
     await query.edit_message_text(f"Файл '{removed['filename']}' видалено. ✅")
     return ConversationHandler.END
-```
-
----
-
-**Крок 3.** Знайди рядок 249:
-```
-admin_conv = ConversationHandler(
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -319,7 +296,15 @@ def main():
         entry_points=[CommandHandler("start", start)],
         states={WAIT_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, check_password)]},
         fallbacks=[CommandHandler("cancel", cancel), CommandHandler("upload", admin_upload)],
-    )
+    )delete_conv = ConversationHandler(
+            entry_points=[CommandHandler("delete", admin_delete)],
+            states={
+                WAIT_DELETE_USER: [CallbackQueryHandler(admin_delete_select_user, pattern="^duser_")],
+                WAIT_DELETE_KEY:  [CallbackQueryHandler(admin_delete_select_key, pattern="^dkey_")],
+                WAIT_DELETE_FILE: [CallbackQueryHandler(admin_delete_file, pattern="^dfile_")],
+            },
+            fallbacks=[CommandHandler("cancel", cancel)],
+        )
     admin_conv = ConversationHandler(
         entry_points=[CommandHandler("upload", admin_upload)],
         states={
@@ -333,6 +318,7 @@ def main():
     )
     app.add_handler(user_conv)
     app.add_handler(admin_conv)
+    app.add_handler(delete_conv)
     app.add_handler(CallbackQueryHandler(handle_year,   pattern="^year_"))
     app.add_handler(CallbackQueryHandler(handle_month,  pattern="^month_"))
     app.add_handler(CallbackQueryHandler(handle_type,   pattern="^type_"))
