@@ -232,7 +232,7 @@ async def admin_receive_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
             db[name] = {}
     if key not in db[name]:
             db[name][key] = []
-        db[name][key].append({"file_id": doc.file_id, "filename": doc.file_name})
+    db[name][key].append({"file_id": doc.file_id, "filename": doc.file_name})
     save_db(db)
     await update.message.reply_text(f"Збережено!\nДля: {name}\n{month_name} {year}\nФайл: {doc.file_name}\n\nДодати ще — /upload")
     return ConversationHandler.END
