@@ -85,10 +85,10 @@ async def handle_year(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     year = query.data.replace("year_", "")
     context.user_data["year"] = year
-   password  = context.user_data["password"]
-   name      = USERS[password]
-   db        = load_db()
-   user_data = db.get(name, {})
+    password  = context.user_data["password"]
+    name      = USERS[password]
+    db        = load_db()
+    user_data = db.get(name, {})
     months = sorted(set(
         key.split("_")[1]
         for key in user_data.keys()
