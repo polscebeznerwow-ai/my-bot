@@ -27,6 +27,7 @@ MONTHS_UA = {
 }
 
 DB_FILE = "documents.json"
+USER_KEYS = {pw: name for pw, name in USERS.items()}
 
 WAIT_PASSWORD = 0
 WAIT_DELETE_USER, WAIT_DELETE_KEY, WAIT_DELETE_FILE = range(3)
@@ -66,7 +67,7 @@ async def show_years(message_obj, context):
     password  = context.user_data["password"]
     name      = context.user_data["name"]
     db        = load_db()
-    user_data = db.get(password, {})
+    user_data = db.get(name, {})
     years = sorted(set(
         key.split("_")[0]
         for key in user_data.keys()
@@ -84,9 +85,10 @@ async def handle_year(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     year = query.data.replace("year_", "")
     context.user_data["year"] = year
-    password  = context.user_data["password"]
-    db        = load_db()
-    user_data = db.get(password, {})
+   password  = context.user_data["password"]
+   name      = USERS[password]
+   db        = load_db()
+   user_data = db.get(name, {})
     months = sorted(set(
         key.split("_")[1]
         for key in user_data.keys()
@@ -108,7 +110,8 @@ async def handle_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     year      = context.user_data["year"]
     password  = context.user_data["password"]
     db        = load_db()
-    user_data = db.get(password, {})
+    name      = USERS[password]
+    user_data = db.get(name, {})
     month_name = MONTHS_UA[month]
     type_labels = {"daily": "Щоденні", "weekly": "Тижневі", "monthly": "Місячні"}
     types_available = [t for t in ["daily", "weekly", "monthly"] if user_data.get(f"{year}_{month}_{t}")]
@@ -131,7 +134,7 @@ async def handle_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     month_name = MONTHS_UA[month]
     db   = load_db()
     key  = f"{year}_{month}_{doc_type}"
-    docs = db.get(password, {}).get(key, [])
+    docs = db.get(name, {}).get(key, [])
     type_labels = {"daily": "Щоденні", "weekly": "Тижневі", "monthly": "Місячні"}
     keyboard = [[InlineKeyboardButton("Назад до типів", callback_data=f"month_{month}")]]
     if not docs:
@@ -225,11 +228,11 @@ async def admin_receive_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
     month_name = MONTHS_UA[month]
     key        = f"{year}_{month}_{doc_type}"
     db = load_db()
-    if password not in db:
-        db[password] = {}
-    if key not in db[password]:
-        db[password][key] = []
-    db[password][key].append({"file_id": doc.file_id, "filename": doc.file_name})
+    if name not in db:
+            db[name] = {}
+    if key not in db[name]:
+            db[name][key] = []
+        db[name][key].append({"file_id": doc.file_id, "filename": doc.file_name})
     save_db(db)
     await update.message.reply_text(f"Збережено!\nДля: {name}\n{month_name} {year}\nФайл: {doc.file_name}\n\nДодати ще — /upload")
     return ConversationHandler.END
@@ -253,7 +256,8 @@ async def admin_delete_select_user(update: Update, context: ContextTypes.DEFAULT
     password = query.data.replace("duser_", "")
     context.user_data["del_password"] = password
     db = load_db()
-    user_data = db.get(password, {})
+    name = USERS[password]
+    user_data = db.get(name, {})
     if not user_data:
         await query.edit_message_text("Документів немає.")
         return ConversationHandler.END
@@ -268,7 +272,8 @@ async def admin_delete_select_key(update: Update, context: ContextTypes.DEFAULT_
     context.user_data["del_key"] = key
     password = context.user_data["del_password"]
     db = load_db()
-    docs = db.get(password, {}).get(key, [])
+    name = USERS[password]
+    docs = db.get(name, {}).get(key, [])
     if not docs:
         await query.edit_message_text("Файлів немає.")
         return ConversationHandler.END
@@ -283,9 +288,10 @@ async def admin_delete_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     password = context.user_data["del_password"]
     key = context.user_data["del_key"]
     db = load_db()
-    removed = db[password][key].pop(index)
-    if not db[password][key]:
-        del db[password][key]
+    name = USERS[password]
+    removed = db[name][key].pop(index)
+    if not db[name][key]:
+        del db[name][key]
     save_db(db)
     await query.edit_message_text(f"Файл '{removed['filename']}' видалено. ✅")
     return ConversationHandler.END
