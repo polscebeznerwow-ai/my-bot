@@ -296,16 +296,16 @@ def main():
         entry_points=[CommandHandler("start", start)],
         states={WAIT_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, check_password)]},
         fallbacks=[CommandHandler("cancel", cancel), CommandHandler("upload", admin_upload)],
-  )
-        delete_conv = ConversationHandler(
-            entry_points=[CommandHandler("delete", admin_delete)],
-            states={
-                WAIT_DELETE_USER: [CallbackQueryHandler(admin_delete_select_user, pattern="^duser_")],
-                WAIT_DELETE_KEY:  [CallbackQueryHandler(admin_delete_select_key, pattern="^dkey_")],
-                WAIT_DELETE_FILE: [CallbackQueryHandler(admin_delete_file, pattern="^dfile_")],
-            },
-            fallbacks=[CommandHandler("cancel", cancel)],
-        )
+   )
+   delete_conv = ConversationHandler(
+        entry_points=[CommandHandler("delete", admin_delete)],
+        states={
+            WAIT_DELETE_USER: [CallbackQueryHandler(admin_delete_select_user, pattern="^duser_")],
+            WAIT_DELETE_KEY:  [CallbackQueryHandler(admin_delete_select_key, pattern="^dkey_")],
+            WAIT_DELETE_FILE: [CallbackQueryHandler(admin_delete_file, pattern="^dfile_")],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
     admin_conv = ConversationHandler(
         entry_points=[CommandHandler("upload", admin_upload)],
         states={
