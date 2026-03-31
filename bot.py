@@ -29,6 +29,7 @@ MONTHS_UA = {
 DB_FILE = "documents.json"
 
 WAIT_PASSWORD = 0
+WAIT_DELETE_USER, WAIT_DELETE_KEY, WAIT_DELETE_FILE = range(3)
 WAIT_DOC_USER, WAIT_DOC_YEAR, WAIT_DOC_MONTH, WAIT_DOC_TYPE, WAIT_DOC_FILE = range(5)
 
 
@@ -237,7 +238,80 @@ async def admin_receive_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Скасовано.")
     return ConversationHandler.END
+    delete_conv = ConversationHandler(
+    entry_points=[CommandHandler("delete", admin_delete)],
+    states={
+        WAIT_DELETE_USER: [CallbackQueryHandler(admin_delete_select_user, pattern="^duser_")],
+        WAIT_DELETE_KEY:  [CallbackQueryHandler(admin_delete_select_key, pattern="^dkey_")],
+        WAIT_DELETE_FILE: [CallbackQueryHandler(admin_delete_file, pattern="^dfile_")],
+    },
+    fallbacks=[CommandHandler("cancel", cancel)],
+)
+```
 
+---
+
+**Крок 4.** Знайди рядок:
+```
+app.add_handler(admin_conv)
+    app.add_handler(delete_conv)
+async def admin_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("Тільки для адміністратора.")
+        return ConversationHandler.END
+    keyboard = [[InlineKeyboardButton(name, callback_data=f"duser_{pw}")] for pw, name in USERS.items()]
+    await update.message.reply_text("Для кого видаляємо?", reply_markup=InlineKeyboardMarkup(keyboard))
+    return WAIT_DELETE_USER
+
+async def admin_delete_select_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    password = query.data.replace("duser_", "")
+    context.user_data["del_password"] = password
+    db = load_db()
+    user_data = db.get(password, {})
+    if not user_data:
+        await query.edit_message_text("Документів немає.")
+        return ConversationHandler.END
+    keyboard = [[InlineKeyboardButton(k, callback_data=f"dkey_{k}")] for k in user_data.keys()]
+    await query.edit_message_text("Оберіть категорію:", reply_markup=InlineKeyboardMarkup(keyboard))
+    return WAIT_DELETE_KEY
+
+async def admin_delete_select_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    key = query.data.replace("dkey_", "")
+    context.user_data["del_key"] = key
+    password = context.user_data["del_password"]
+    db = load_db()
+    docs = db.get(password, {}).get(key, [])
+    if not docs:
+        await query.edit_message_text("Файлів немає.")
+        return ConversationHandler.END
+    keyboard = [[InlineKeyboardButton(doc["filename"], callback_data=f"dfile_{i}")] for i, doc in enumerate(docs)]
+    await query.edit_message_text("Оберіть файл для видалення:", reply_markup=InlineKeyboardMarkup(keyboard))
+    return WAIT_DELETE_FILE
+
+async def admin_delete_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    index = int(query.data.replace("dfile_", ""))
+    password = context.user_data["del_password"]
+    key = context.user_data["del_key"]
+    db = load_db()
+    removed = db[password][key].pop(index)
+    if not db[password][key]:
+        del db[password][key]
+    save_db(db)
+    await query.edit_message_text(f"Файл '{removed['filename']}' видалено. ✅")
+    return ConversationHandler.END
+```
+
+---
+
+**Крок 3.** Знайди рядок 249:
+```
+admin_conv = ConversationHandler(
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
