@@ -12,10 +12,12 @@ logging.basicConfig(level=logging.INFO)
 BOT_TOKEN = "8525815500:AAFL_xrIbGULwY5Iu7TuKcbjKTG_GiKDP5g"
 ADMIN_ID   = 980725289
 
-USERS = {
-    "bigred_V1":   "Звіт про виконання робіт:",
-    "bigred_G2":   "Звіт: Обсяг робіт/годин",
-    "bigred_L3":   "Табель: Людино-години",
+USERS_FILE = "/data/users.json"
+
+DEFAULT_USERS = {
+    "bigred_V1": "Звіт про виконання робіт:",
+    "bigred_G2": "Звіт: Обсяг робіт/годин",
+    "bigred_L3": "Табель: Людино-години",
     "bigred_Z4": "Інше",
 }
 
@@ -27,12 +29,22 @@ MONTHS_UA = {
 }
 
 DB_FILE = "/data/documents.json"
-USER_KEYS = {pw: name for pw, name in USERS.items()}
 
 WAIT_PASSWORD = 0
 WAIT_DELETE_USER, WAIT_DELETE_KEY, WAIT_DELETE_FILE = range(3)
 WAIT_DOC_USER, WAIT_DOC_YEAR, WAIT_DOC_MONTH, WAIT_DOC_TYPE, WAIT_DOC_FILE = range(5)
+WAIT_SETPW_USER, WAIT_SETPW_NEW = range(2)
 
+
+def load_users():
+    if os.path.exists(USERS_FILE):
+        with open(USERS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return dict(DEFAULT_USERS)
+
+def save_users(users):
+    with open(USERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(users, f, ensure_ascii=False, indent=2)
 
 def load_db():
     if os.path.exists(DB_FILE):
@@ -53,6 +65,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def check_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
     password = update.message.text.strip()
+    USERS = load_users()
     if password not in USERS:
         await update.message.reply_text("Невірний пароль. Спробуйте ще раз:")
         return WAIT_PASSWORD
@@ -64,6 +77,7 @@ async def check_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def show_years(message_obj, context):
+    USERS = load_users()
     password  = context.user_data["password"]
     name      = context.user_data["name"]
     db        = load_db()
@@ -85,6 +99,7 @@ async def handle_year(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     year = query.data.replace("year_", "")
     context.user_data["year"] = year
+    USERS = load_users()
     password  = context.user_data["password"]
     name      = USERS[password]
     db        = load_db()
@@ -109,6 +124,7 @@ async def handle_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["month"] = month
     year      = context.user_data["year"]
     password  = context.user_data["password"]
+    USERS = load_users()
     db        = load_db()
     name      = USERS[password]
     user_data = db.get(name, {})
@@ -151,10 +167,13 @@ async def back_to_years(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await show_years(query.message, context)
 
 
+# ── UPLOAD ──────────────────────────────────────────────────────────────────
+
 async def admin_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("Тільки для адміністратора.")
         return ConversationHandler.END
+    USERS = load_users()
     keyboard = [[InlineKeyboardButton(name, callback_data=f"auser_{pw}")] for pw, name in USERS.items()]
     await update.message.reply_text("Для кого завантажуємо?", reply_markup=InlineKeyboardMarkup(keyboard))
     return WAIT_DOC_USER
@@ -163,6 +182,7 @@ async def admin_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_select_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    USERS = load_users()
     password = query.data.replace("auser_", "")
     context.user_data["target_password"] = password
     context.user_data["target_name"]     = USERS[password]
@@ -220,7 +240,6 @@ async def admin_receive_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not doc:
         await update.message.reply_text("Надішліть файл.")
         return WAIT_DOC_FILE
-    password   = context.user_data["target_password"]
     name       = context.user_data["target_name"]
     year       = context.user_data["upload_year"]
     month      = context.user_data["upload_month"]
@@ -229,23 +248,22 @@ async def admin_receive_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
     key        = f"{year}_{month}_{doc_type}"
     db = load_db()
     if name not in db:
-            db[name] = {}
+        db[name] = {}
     if key not in db[name]:
-            db[name][key] = []
+        db[name][key] = []
     db[name][key].append({"file_id": doc.file_id, "filename": doc.file_name})
     save_db(db)
     await update.message.reply_text(f"Збережено!\nДля: {name}\n{month_name} {year}\nФайл: {doc.file_name}\n\nДодати ще — /upload")
     return ConversationHandler.END
 
 
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Скасовано.")
-    return ConversationHandler.END
-   
+# ── DELETE ───────────────────────────────────────────────────────────────────
+
 async def admin_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("Тільки для адміністратора.")
         return ConversationHandler.END
+    USERS = load_users()
     keyboard = [[InlineKeyboardButton(name, callback_data=f"duser_{pw}")] for pw, name in USERS.items()]
     await update.message.reply_text("Для кого видаляємо?", reply_markup=InlineKeyboardMarkup(keyboard))
     return WAIT_DELETE_USER
@@ -253,6 +271,7 @@ async def admin_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_delete_select_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    USERS = load_users()
     password = query.data.replace("duser_", "")
     context.user_data["del_password"] = password
     db = load_db()
@@ -271,6 +290,7 @@ async def admin_delete_select_key(update: Update, context: ContextTypes.DEFAULT_
     key = query.data.replace("dkey_", "")
     context.user_data["del_key"] = key
     password = context.user_data["del_password"]
+    USERS = load_users()
     db = load_db()
     name = USERS[password]
     docs = db.get(name, {}).get(key, [])
@@ -287,6 +307,7 @@ async def admin_delete_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     index = int(query.data.replace("dfile_", ""))
     password = context.user_data["del_password"]
     key = context.user_data["del_key"]
+    USERS = load_users()
     db = load_db()
     name = USERS[password]
     removed = db[name][key].pop(index)
@@ -296,22 +317,59 @@ async def admin_delete_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_text(f"Файл '{removed['filename']}' видалено. ✅")
     return ConversationHandler.END
 
+
+# ── ЗМІНА ПАРОЛІВ ────────────────────────────────────────────────────────────
+
+async def admin_setpassword(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("Тільки для адміністратора.")
+        return ConversationHandler.END
+    USERS = load_users()
+    keyboard = [[InlineKeyboardButton(f"{name} [{pw}]", callback_data=f"spuser_{pw}")] for pw, name in USERS.items()]
+    await update.message.reply_text("Для кого змінюємо пароль?", reply_markup=InlineKeyboardMarkup(keyboard))
+    return WAIT_SETPW_USER
+
+async def setpw_select_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    old_pw = query.data.replace("spuser_", "")
+    USERS = load_users()
+    context.user_data["setpw_old"] = old_pw
+    context.user_data["setpw_name"] = USERS[old_pw]
+    await query.edit_message_text(f"Введіть новий пароль для '{USERS[old_pw]}':")
+    return WAIT_SETPW_NEW
+
+async def setpw_receive_new(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    new_pw = update.message.text.strip()
+    if not new_pw or " " in new_pw:
+        await update.message.reply_text("Пароль не може бути порожнім або містити пробіли. Спробуйте ще:")
+        return WAIT_SETPW_NEW
+    old_pw = context.user_data["setpw_old"]
+    name   = context.user_data["setpw_name"]
+    USERS = load_users()
+    if new_pw in USERS and new_pw != old_pw:
+        await update.message.reply_text("Такий пароль вже існує. Введіть інший:")
+        return WAIT_SETPW_NEW
+    USERS[new_pw] = USERS.pop(old_pw)
+    save_users(USERS)
+    await update.message.reply_text(f"✅ Пароль для '{name}' змінено!\nСтарий: `{old_pw}`\nНовий: `{new_pw}`", parse_mode="Markdown")
+    return ConversationHandler.END
+
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Скасовано.")
+    return ConversationHandler.END
+
+
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
+
     user_conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={WAIT_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, check_password)]},
-        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("upload", admin_upload)],
-    )
-    delete_conv = ConversationHandler(
-        entry_points=[CommandHandler("delete", admin_delete)],
-        states={
-            WAIT_DELETE_USER: [CallbackQueryHandler(admin_delete_select_user, pattern="^duser_")],
-            WAIT_DELETE_KEY:  [CallbackQueryHandler(admin_delete_select_key, pattern="^dkey_")],
-            WAIT_DELETE_FILE: [CallbackQueryHandler(admin_delete_file, pattern="^dfile_")],
-        },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
+
     admin_conv = ConversationHandler(
         entry_points=[CommandHandler("upload", admin_upload)],
         states={
@@ -321,15 +379,37 @@ def main():
             WAIT_DOC_TYPE:  [CallbackQueryHandler(admin_select_type,  pattern="^atype_")],
             WAIT_DOC_FILE:  [MessageHandler(filters.Document.ALL, admin_receive_file)],
         },
-        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("upload", admin_upload)],
+        fallbacks=[CommandHandler("cancel", cancel)],
     )
+
+    delete_conv = ConversationHandler(
+        entry_points=[CommandHandler("delete", admin_delete)],
+        states={
+            WAIT_DELETE_USER: [CallbackQueryHandler(admin_delete_select_user, pattern="^duser_")],
+            WAIT_DELETE_KEY:  [CallbackQueryHandler(admin_delete_select_key,  pattern="^dkey_")],
+            WAIT_DELETE_FILE: [CallbackQueryHandler(admin_delete_file,        pattern="^dfile_")],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+
+    setpw_conv = ConversationHandler(
+        entry_points=[CommandHandler("setpassword", admin_setpassword)],
+        states={
+            WAIT_SETPW_USER: [CallbackQueryHandler(setpw_select_user, pattern="^spuser_")],
+            WAIT_SETPW_NEW:  [MessageHandler(filters.TEXT & ~filters.COMMAND, setpw_receive_new)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+
     app.add_handler(user_conv)
     app.add_handler(admin_conv)
     app.add_handler(delete_conv)
+    app.add_handler(setpw_conv)
     app.add_handler(CallbackQueryHandler(handle_year,   pattern="^year_"))
     app.add_handler(CallbackQueryHandler(handle_month,  pattern="^month_"))
     app.add_handler(CallbackQueryHandler(handle_type,   pattern="^type_"))
     app.add_handler(CallbackQueryHandler(back_to_years, pattern="^back_to_years$"))
+
     print("Бот запущено!")
     app.run_polling()
 
