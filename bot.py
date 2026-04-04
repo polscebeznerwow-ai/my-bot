@@ -77,7 +77,6 @@ async def check_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def show_years(message_obj, context):
-    USERS = load_users()
     password  = context.user_data["password"]
     name      = context.user_data["name"]
     db        = load_db()
@@ -167,8 +166,6 @@ async def back_to_years(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await show_years(query.message, context)
 
 
-# ── UPLOAD ──────────────────────────────────────────────────────────────────
-
 async def admin_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("Тільки для адміністратора.")
@@ -257,8 +254,6 @@ async def admin_receive_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return ConversationHandler.END
 
 
-# ── DELETE ───────────────────────────────────────────────────────────────────
-
 async def admin_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("Тільки для адміністратора.")
@@ -318,8 +313,6 @@ async def admin_delete_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-# ── ЗМІНА ПАРОЛІВ ────────────────────────────────────────────────────────────
-
 async def admin_setpassword(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("Тільки для адміністратора.")
@@ -368,6 +361,7 @@ def main():
         entry_points=[CommandHandler("start", start)],
         states={WAIT_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, check_password)]},
         fallbacks=[CommandHandler("cancel", cancel)],
+        allow_reentry=True,
     )
 
     admin_conv = ConversationHandler(
@@ -380,6 +374,7 @@ def main():
             WAIT_DOC_FILE:  [MessageHandler(filters.Document.ALL, admin_receive_file)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
+        allow_reentry=True,
     )
 
     delete_conv = ConversationHandler(
@@ -390,6 +385,7 @@ def main():
             WAIT_DELETE_FILE: [CallbackQueryHandler(admin_delete_file,        pattern="^dfile_")],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
+        allow_reentry=True,
     )
 
     setpw_conv = ConversationHandler(
@@ -399,6 +395,7 @@ def main():
             WAIT_SETPW_NEW:  [MessageHandler(filters.TEXT & ~filters.COMMAND, setpw_receive_new)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
+        allow_reentry=True,
     )
 
     app.add_handler(user_conv)
